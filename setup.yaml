@@ -24,6 +24,12 @@
       name: hostapd
       state: restarted
 
+  - name: save iptables
+    command: '{{ item }}'
+    with_items:
+      - iptables-save
+      - ip6tables-save
+
   tasks:
   - name: install a few packages
     apt:
@@ -67,6 +73,9 @@
       source: 192.168.142.0/24
       out_interface: eth0
       jump: MASQUERADE
+    notify:
+      - save iptables
+      - restart hostapd
 
   - name: enable NAT for IPv6
     iptables:
@@ -76,3 +85,6 @@
       source: fd01::/64
       out_interface: eth0
       jump: MASQUERADE
+    notify:
+      - save iptables
+      - restart hostapd
