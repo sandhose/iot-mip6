@@ -1,14 +1,16 @@
 network:
-    version: 2
-    ethernets:
-        eth0:
-            addresses: [{{ network_addr }}]
-            gateway4: {{ network_gateway }}
-            nameservers:
-                addresses: [{{ nameservers | join(', ') }}]
-            dhcp4: false
-            dhcp6: false
-        wlan0:
-            addresses: [{{ wifi_net | ipaddr('net') | ipaddr('1') }}]
-            dhcp4: false
-            dhcp6: false
+  version: 2
+  ethernets:
+    {{ network_iface }}:
+      addresses: [{{ network_addr }}]
+      gateway4: {{ network_gateway }}
+      nameservers:
+        addresses: [{{ nameservers | join(', ') }}]
+      dhcp4: false
+      dhcp6: false
+    {{ wifi_iface }}:
+      addresses:
+      - {{ wifi_net | ipaddr('net') | ipaddr('1') }}
+      - {{ wifi_net6 | ipaddr('net') | ipaddr('1') }}
+      dhcp4: false
+      dhcp6: false

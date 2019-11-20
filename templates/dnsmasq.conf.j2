@@ -4,6 +4,12 @@ bind-interfaces
 no-resolv
 expand-hosts
 
+local=/corp/
+domain=corp
+dhcp-fqdn
+
+enable-ra
+
 port=53
 dhcp-range={{ wifi_net | ipaddr('net') | ipaddr('10') | ipv4('address') }},{{ wifi_net | ipaddr('net') | ipaddr('-2') | ipv4('address') }},12h
 
