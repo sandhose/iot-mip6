@@ -19,16 +19,13 @@
       name: dnsmasq
       state: restarted
 
+  - name: save iptables
+    command: netfilter-persistent save
+
   - name: restart hostapd
     systemd:
       name: hostapd
       state: restarted
-
-  - name: save iptables
-    command: '{{ item }}'
-    with_items:
-      - iptables-save
-      - ip6tables-save
 
   tasks:
   - name: install a few packages
