@@ -1,0 +1,57 @@
+- hosts: all
+  become: yes
+  vars:
+    network_addr: 130.79.92.30/25
+    network_gateway: 130.79.92.126
+    nameservers: [130.79.200.200]
+    wifi_net: 192.168.142.0/24
+    wifi_ssid: Bite
+
+  handlers:
+  - name: reapply netplan
+    command: netplan apply
+
+  - name: restart dnsmasq
+    systemd:
+      name: dnsmasq
+      state: restarted
+
+  - name: restart hostapd
+    systemd:
+      name: hostapd
+      state: restarted
+
+  tasks:
+  - name: install a few packages
+    apt:
+      pkg:
+      - dnsmasq
+      - hostapd
+      - iptables-persistent
+      - radvd
+
+  - name: allow forwarding
+    sysctl:
+      name: '{{ item }}'
+      value: '1'
+    with_items:
+    - net.ipv4.ip_forward
+    - net.ipv6.conf.all.forwarding
+
+  - name: configure interfaces
+    template:
+      src: netplan.yaml.j2
+      dest: /etc/netplan/51-custom.yaml
+    notify: reapply netplan
+
+  - name: configure dnsmasq
+    template:
+      src: dnsmasq.conf.j2
+      dest: /etc/dnsmasq.conf
+    notify: restart dnsmasq
+
+  - name: configure hostapd
+    template:
+      src: hostapd.conf.j2
+      dest: /etc/hostapd/hostapd.conf
+    notify: restart hostapd

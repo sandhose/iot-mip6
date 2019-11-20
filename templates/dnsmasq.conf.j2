@@ -1,0 +1,14 @@
+domain-needed
+bogus-priv
+bind-interfaces
+no-resolv
+expand-hosts
+
+port=53
+dhcp-range={{ wifi_net | ipaddr('net') | ipaddr('10') | ipv4('address') }},{{ wifi_net | ipaddr('net') | ipaddr('-2') | ipv4('address') }},12h
+
+except-interface=eth0
+
+{% for ns in nameservers %}
+server={{ ns }}
+{% endfor %}
