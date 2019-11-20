@@ -58,3 +58,21 @@
       src: hostapd.conf.j2
       dest: /etc/hostapd/hostapd.conf
     notify: restart hostapd
+
+  - name: enable NAT for IPv4
+    iptables:
+      ip_version: ipv4
+      table: nat
+      chain: POSTROUTING
+      source: 192.168.142.0/24
+      out_interface: eth0
+      jump: MASQUERADE
+
+  - name: enable NAT for IPv6
+    iptables:
+      ip_version: ipv6
+      table: nat
+      chain: POSTROUTING
+      source: fd01::/64
+      out_interface: eth0
+      jump: MASQUERADE
