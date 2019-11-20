@@ -1,3 +1,12 @@
+- name: setup multiple authorized keys
+  authorized_key:
+    user: '{{ item.1 }}'
+    state: present
+    key: "{{ lookup('file', item.0) }}"
+  with_nested:
+    - [ ludovicm67.pub, sandhose.pub ]
+    - [ root, '{{ ansible_user }}' ]
+
 - name: install a few packages
   apt:
     pkg:

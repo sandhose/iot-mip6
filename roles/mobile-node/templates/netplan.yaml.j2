@@ -1,0 +1,8 @@
+network:
+  version: 2
+  wifis:
+    {{ wifi_iface }}:
+      dhcp4: yes
+      dhcp6: no
+      access-points:
+        "{{ wifi_ssid }}": {}

@@ -1,15 +1,14 @@
-- hosts: rasp1
+- hosts: all
   become: yes
-  vars:
-    network_addr: 130.79.92.30/25
-    network_gateway: 130.79.92.126
-    network_iface: eth0
-    nameservers: [130.79.200.200]
-    wifi_net: 192.168.142.0/24
-    wifi_net6: fd01::/64
-    wifi_ssid: Bite
-    wifi_iface: wlan0
-
   roles:
   - common
+
+- hosts: rasp1
+  become: yes
+  roles:
   - home-agent
+
+- hosts: rasp2
+  become: yes
+  roles:
+  - mobile-node
