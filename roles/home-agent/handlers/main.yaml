@@ -1,0 +1,15 @@
+- name: reapply netplan
+  command: netplan apply
+
+- name: restart dnsmasq
+  systemd:
+    name: dnsmasq
+    state: restarted
+
+- name: save iptables
+  command: netfilter-persistent save
+
+- name: restart hostapd
+  systemd:
+    name: hostapd
+    state: restarted

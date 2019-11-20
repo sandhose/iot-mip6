@@ -1,0 +1,56 @@
+- name: install a few packages
+  apt:
+    pkg:
+    - dnsmasq
+    - hostapd
+    - iptables-persistent
+
+- name: allow forwarding
+  sysctl:
+    name: '{{ item }}'
+    value: '1'
+  with_items:
+  - net.ipv4.ip_forward
+  - net.ipv6.conf.all.forwarding
+
+- name: configure interfaces
+  template:
+    src: netplan.yaml.j2
+    dest: /etc/netplan/51-custom.yaml
+  notify: reapply netplan
+
+- name: configure dnsmasq
+  template:
+    src: dnsmasq.conf.j2
+    dest: /etc/dnsmasq.conf
+  notify: restart dnsmasq
+
+- name: configure hostapd
+  template:
+    src: hostapd.conf.j2
+    dest: /etc/hostapd/hostapd.conf
+  notify: restart hostapd
+
+- name: enable NAT for IPv4
+  iptables:
+    ip_version: ipv4
+    table: nat
+    chain: POSTROUTING
+    source: 192.168.142.0/24
+    out_interface: eth0
+    jump: MASQUERADE
+  notify:
+    - save iptables
+    - restart hostapd
+
+- name: enable NAT for IPv6
+  iptables:
+    ip_version: ipv6
+    table: nat
+    chain: POSTROUTING
+    source: fd01::/64
+    out_interface: eth0
+    jump: MASQUERADE
+  notify:
+    - save iptables
+    - restart hostapd

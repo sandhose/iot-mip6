@@ -1,0 +1,4 @@
+- name: install a few packages
+  apt:
+    pkg:
+    - aptitude
