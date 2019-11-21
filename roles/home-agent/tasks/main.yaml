@@ -25,6 +25,14 @@
     dest: /etc/dnsmasq.conf
   notify: restart dnsmasq
 
+- name: add entries to /etc/hosts
+  lineinfile:
+    dest: /etc/hosts
+    line: "{{ item | ipaddr('net') | ipaddr('1') }}	{{ inventory_hostname }}.{{ domain }}"
+  with_items:
+  - '{{ wifi_net }}'
+  - '{{ wifi_net6 }}'
+
 - name: configure hostapd
   template:
     src: hostapd.conf.j2

@@ -2,15 +2,23 @@ network:
   version: 2
   ethernets:
     {{ network_iface }}:
-      # addresses: [{{ network_addr }}]
-      # gateway4: {{ network_gateway }}
-      # nameservers:
-      #   addresses: [{{ nameservers | join(', ') }}]
+{% if network_addr|d(False) and network_gateway|d(False) %}
+      addresses: [{{ network_addr }}]
+      gateway4: {{ network_gateway }}
+      dhcp4: false
+{% else %}
       dhcp4: true
+{% endif %}
       dhcp6: false
+
     {{ wifi_iface }}:
       addresses:
-      - {{ wifi_net | ipaddr('net') | ipaddr('1') }}
-      - {{ wifi_net6 | ipaddr('net') | ipaddr('1') }}
+      - {{ wifi_net | ipaddr('1') }}
+      - {{ wifi_net6 | ipaddr('1') }}
       dhcp4: false
       dhcp6: false
+      nameservers:
+        addresses:
+        - {{ wifi_net | ipaddr('1') | ipaddr('address') }}
+        - {{ wifi_net6 | ipaddr('1') | ipaddr('address') }}
+        search: [corp]
