@@ -2,11 +2,11 @@ network:
   version: 2
   ethernets:
     {{ network_iface }}:
-      addresses: [{{ network_addr }}]
-      gateway4: {{ network_gateway }}
-      nameservers:
-        addresses: [{{ nameservers | join(', ') }}]
-      dhcp4: false
+      # addresses: [{{ network_addr }}]
+      # gateway4: {{ network_gateway }}
+      # nameservers:
+      #   addresses: [{{ nameservers | join(', ') }}]
+      dhcp4: true
       dhcp6: false
     {{ wifi_iface }}:
       addresses:

@@ -11,3 +11,11 @@
   apt:
     pkg:
     - aptitude
+
+- name: setup hostname
+  hostname:
+    name: '{{ inventory_hostname }}'
+
+- name: setup timezone
+  timezone:
+    name: Europe/Paris

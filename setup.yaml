@@ -3,12 +3,12 @@
   roles:
   - common
 
-- hosts: rasp1
+- hosts: home-agent
   become: yes
   roles:
   - home-agent
 
-- hosts: rasp2
+- hosts: mobile-node
   become: yes
   roles:
   - mobile-node
