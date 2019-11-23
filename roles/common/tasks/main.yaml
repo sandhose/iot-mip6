@@ -12,6 +12,8 @@
     pkg:
     - aptitude
     - linux-tools-common
+    - libdw1
+    - libunwind8
 
 - name: setup hostname
   hostname:
