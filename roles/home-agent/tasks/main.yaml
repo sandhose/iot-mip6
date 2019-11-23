@@ -39,6 +39,13 @@
     dest: /etc/hostapd/hostapd.conf
   notify: restart hostapd
 
+- name: enable and start hostapd
+  systemd:
+    name: hostapd
+    enabled: yes
+    masked: no
+    state: started
+
 - name: enable NAT for IPv4
   iptables:
     ip_version: ipv4

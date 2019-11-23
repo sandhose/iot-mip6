@@ -11,6 +11,7 @@
   apt:
     pkg:
     - aptitude
+    - linux-tools-common
 
 - name: setup hostname
   hostname:
