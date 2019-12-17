@@ -163,18 +163,18 @@ On a dû patcher UMIP pour arriver à le compiler correctement (voir le patch en
 Le tout semble fonctionner convenablement, car depuis mip6d on peut inspecter la liste des préfixes, le *binding cache*, la liste des *home address*, la liste des *binding update*, … comme on peut le voir ci-dessous :
 
 ```sh
-mip6d> pl # prefix list
+mip6d> pl # prefix list (HA)
 dummy0 fd02:0:0:0:0:0:0:1/64
  valid 86399 / 86400 preferred 14400 flags OAR
-mip6d> bc # binding cache
+mip6d> bc # binding cache (HA)
 hoa fd02:0:0:0:0:0:0:42 status registered
  coa fd01:0:0:0:ba27:ebff:fe62:3c58 flags AH--
  local fd02:0:0:0:0:0:0:1
  lifetime 85957 / 86396 seq 7909 unreach 0 mpa 199 / 636 retry 0
-mip6d> hal # home address list
+mip6d> hal # home address list (HA)
 dummy0 fd02:0:0:0:0:0:0:1
  preference 10 lifetime 1800
-mip6d> bul # binding update list
+mip6d> bul # binding update list (MN)
 == BUL_ENTRY ==
 Home address    fd02:0:0:0:0:0:0:42
 Care-of address fd01:0:0:0:ba27:ebff:fe62:3c58
@@ -283,6 +283,10 @@ Internet Protocol Version 6, Src: fd01::ba27:ebff:fe62:3c58, Dst: fd02::1
 Internet Protocol Version 6, Src: fd02::42, Dst: fd02::bc1c:91ff:fefb:7c46
 Transmission Control Protocol, Src Port: 1234, Dst Port: 48748, Seq: 1, Ack: 184, Len: 0
 ```
+
+Une référence qui a été utile pour la configuration d'UMIP :
+
+http://livre.g6.asso.fr/index.php?title=Mobilit%C3%A9Bis&oldid=4413#Exemple_de_mise_en_oeuvre_.28UMIP.29
 
 \newpage
 
