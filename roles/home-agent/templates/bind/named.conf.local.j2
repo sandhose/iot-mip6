@@ -1,3 +1,5 @@
+{{ ansible_managed | comment }}
+
 include "/etc/bind/zones.rfc1918";
 
 zone "{{ domain }}" {

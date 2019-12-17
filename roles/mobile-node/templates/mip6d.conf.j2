@@ -1,10 +1,12 @@
+{{ ansible_managed | comment }}
+
 NodeConfig MN;
 
 UseMnHaIPsec disabled;
 KeyMngMobCapability disabled;
-OptimisticHandoff enabled;
-DoRouteOptimizationCN enabled;
-DoRouteOptimizationMN enabled;
+OptimisticHandoff disabled;
+DoRouteOptimizationCN disabled;
+DoRouteOptimizationMN disabled;
 
 UseCnBuAck enabled;
 

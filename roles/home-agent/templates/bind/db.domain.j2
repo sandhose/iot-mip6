@@ -1,3 +1,5 @@
+{{ ansible_managed | comment(decoration=";") }}
+
 $TTL    300
 @	IN	SOA	home-agent.{{ domain }}. root.home-agent.{{ domain }}. (
 	{{ serial }}	; Serial
