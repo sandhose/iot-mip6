@@ -1,0 +1,11 @@
+default-lease-time 600;
+max-lease-time 2592000;
+option subnet-mask 255.255.255.0;
+option broadcast-address {{ wifi_net | ipaddr('-1') | ipaddr('address') }};
+option routers {{ wifi_gateway }};
+option domain-name-servers {{ wifi_gateway }};
+option domain-name "corp";
+
+subnet {{ wifi_net | ipaddr('network') }} netmask {{ wifi_net | ipaddr('netmask') }} {
+  range {{ wifi_net | ipaddr('10') | ipaddr('address') }} {{ wifi_net | ipaddr('-2') | ipaddr('address') }};
+}

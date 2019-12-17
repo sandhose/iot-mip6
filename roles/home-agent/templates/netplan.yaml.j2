@@ -21,4 +21,4 @@ network:
         addresses:
         - {{ wifi_net | ipaddr('1') | ipaddr('address') }}
         - {{ wifi_net6 | ipaddr('1') | ipaddr('address') }}
-        search: [corp]
+        search: [{{ domain }}]

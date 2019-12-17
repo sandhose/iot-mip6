@@ -7,4 +7,20 @@ wifi_net: 192.168.142.0/24
 wifi_net6: fd01::/64
 wifi_ssid: Noisette
 wifi_iface: wlan0
+wifi_gateway: "{{ wifi_net | ipaddr('1') | ipaddr('address') }}"
+wifi_gateway6: "{{ wifi_net6 | ipaddr('1') | ipaddr('address') }}"
+home_net6: fd02::/64
+home_iface: dummy0
 domain: corp
+
+home_agent_address: "{{ home_net6 | ipaddr('1') }}"
+mobile_node_home_address: "{{ home_net6 | ipaddr('66') }}"
+mobile_node_guest_iface: wlan0
+
+kernel_modules:
+- af_key
+- esp6
+- ip6_tunnel
+- ip6_vti
+- mip6
+- xfrm_user

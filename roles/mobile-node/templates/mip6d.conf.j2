@@ -1,0 +1,18 @@
+NodeConfig MN;
+
+UseMnHaIPsec disabled;
+KeyMngMobCapability disabled;
+OptimisticHandoff enabled;
+DoRouteOptimizationCN enabled;
+DoRouteOptimizationMN enabled;
+
+UseCnBuAck enabled;
+
+Interface "{{ mobile_node_guest_iface }}" {
+  MnIfPreference 1;
+}
+
+MnHomeLink "{{ mobile_node_guest_iface }}" {
+  HomeAgentAddress {{ home_agent_address | ipaddr('address') }};
+  HomeAddress {{ mobile_node_home_address }};
+}

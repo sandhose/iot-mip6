@@ -1,15 +1,30 @@
 - name: reapply netplan
   command: netplan apply
 
-- name: restart dnsmasq
+- name: restart isc-dhcp-server
   systemd:
-    name: dnsmasq
+    name: isc-dhcp-server
     state: restarted
 
-- name: save iptables
-  command: netfilter-persistent save
+- name: restart radvd
+  systemd:
+    name: radvd
+    state: restarted
+
+- name: restart networkd
+  systemd:
+    name: systemd-networkd
+    state: restarted
+
+- name: restart bind
+  systemd:
+    name: bind9
+    state: restarted
 
 - name: restart hostapd
   systemd:
     name: hostapd
     state: restarted
+
+- name: save iptables
+  command: netfilter-persistent save

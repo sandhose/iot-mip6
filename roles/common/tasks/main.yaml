@@ -34,3 +34,14 @@
     path: /etc/apt/apt.conf.d/20auto-upgrades
     regexp: '^APT::Periodic::Unattended-Upgrade'
     line: APT::Periodic::Unattended-Upgrade "0";
+
+- name: load needed kernel modules
+  modprobe:
+    name: '{{ item }}'
+  with_items: '{{ kernel_modules }}'
+
+- name: add the kernel modules in /etc/modules
+  lineinfile:
+    line: '{{ item }}'
+    path: '/etc/modules'
+  with_items: '{{ kernel_modules }}'
