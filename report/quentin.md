@@ -1,4 +1,5 @@
 ---
+toc: true
 lang: fr
 papersize: a4
 geometry:
@@ -43,9 +44,51 @@ Le router fait tourner plusieurs services:
  - `bind` comme serveur DNS, avec la zone `.corp` (ex: `home-agent.corp` et `mobile-node.corp`) et les zones reverse pour `192.168.142.0/24` et `fd01::/64`
  - `hostapd` pour le point d'accès `Noisette`
 
-[repo]: https://github.com/sandhose/mip6-raspberry-pi
+[repo]: https://github.com/sandhose/iot-mip6
 [netplan]: https://netplan.io
 
+
+# Mobile IPv6
+
+Pour faire fonctionner le démon `umip`, il a fallu recompiler le noyau avec des options en plus & patcher `umip` pour qu'il compile avec un compilateur récent.
+Le patch est en annexe.
+
+Le noyau a été recompilé à partir des sources du paquet `linux-raspi2` d'Ubuntu, en cross-compilant depuis une autre machine.
+Le résultat donne plusieurs paquets `.deb` que l'on a ensuite installé sur les deux machines.
+
+`umip` a été compilé avec les options `--with-builtin-crypto` (problèmes de compilation sinon) et `--enable-vt` (pour se connecter au démon et inspecter ses tables).
+
+Une fois le tunnel établi, on constate ces entrées dans les différentes tables:
+
+- *prefix list* du `home-agent`:
+  ```default
+  dummy0 fd02:0:0:0:0:0:0:1/64
+   valid 86399 / 86400 preferred 14400 flags OAR
+  ```
+- *binding cache* du `home-agent`:
+  ```default
+  hoa fd02:0:0:0:0:0:0:42 status registered
+   coa fd01:0:0:0:ba27:ebff:fe62:3c58 flags AH--
+   local fd02:0:0:0:0:0:0:1
+   lifetime 85957 / 86396 seq 7909 unreach 0 mpa 199 / 636 retry 0
+  ```
+- *home address list* du `home-agent`:
+  ```default
+  dummy0 fd02:0:0:0:0:0:0:1
+   preference 10 lifetime 1800
+  ```
+- *binding update list* du `mobile-node`:
+  ```default
+  == BUL_ENTRY ==
+  Home address    fd02:0:0:0:0:0:0:42
+  Care-of address fd01:0:0:0:ba27:ebff:fe62:3c58
+  CN address      fd02:0:0:0:0:0:0:1
+   lifetime = 86396,  delay = 82076000
+   flags: IP6_MH_BU_HOME IP6_MH_BU_ACK
+   ack ready
+   lifetime 85914 / 86396 seq 7909 resend 0 delay 82076(after 81595s)
+   mps 77279 / 77758
+  ```
 
 # Annexes
 
@@ -292,6 +335,46 @@ Multicast=on
 [Network]
 Address=fd02::1/64
 ```
+
+
+## `mip6d`
+
+### `/usr/local/etc/mip6d.conf` (`mobile-node`)
+
+```sh
+NodeConfig MN;
+
+UseMnHaIPsec disabled;
+KeyMngMobCapability disabled;
+OptimisticHandoff disabled;
+DoRouteOptimizationCN disabled;
+DoRouteOptimizationMN disabled;
+
+UseCnBuAck enabled;
+
+Interface "wlan0" {
+  MnIfPreference 1;
+}
+
+MnHomeLink "wlan0" {
+  HomeAgentAddress fd02::1;
+  HomeAddress fd02::42/64;
+}
+```
+
+### `/usr/local/etc/mip6d.conf` (`home-agent`)
+
+```sh
+NodeConfig HA;
+
+Interface "dummy0";
+
+UseMnHaIPsec disabled;
+KeyMngMobCapability disabled;
+
+DefaultBindingAclPolicy allow;
+```
+
 
 ## Patch de `umip`
 
