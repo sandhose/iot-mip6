@@ -199,7 +199,7 @@ KeyMngMobCapability disabled;
 DefaultBindingAclPolicy allow;
 ```
 
-***Configuration `/usr/local/etc/mip6d.conf` (MN)::***
+***Configuration `/usr/local/etc/mip6d.conf` (MN):***
 
 ```sh
 NodeConfig MN;
@@ -228,11 +228,61 @@ Nous avons également capturé le trafic pour voir différents messages intéres
 
 - *Binding Acknowledgement*
 
+```default
+Frame 4: 94 bytes on wire (752 bits), 94 bytes captured (752 bits)
+Ethernet II, Src: Raspberr_25:05:81 (b8:27:eb:25:05:81), Dst: Raspberr_62:3c:58 (b8:27:eb:62:3c:58)
+Internet Protocol Version 6, Src: fd02::1, Dst: fd01::ba27:ebff:fe62:3c58
+    0110 .... = Version: 6
+    .... 0000 0000 .... .... .... .... .... = Traffic Class: 0x00 (DSCP: CS0, ECN: Not-ECT)
+    .... .... .... 0100 0000 1100 1111 1001 = Flow Label: 0x40cf9
+    Payload Length: 40
+    Next Header: Routing Header for IPv6 (43)
+    Hop Limit: 64
+    Source: fd02::1
+    Destination: fd01::ba27:ebff:fe62:3c58
+    [Destination SA MAC: Raspberr_62:3c:58 (b8:27:eb:62:3c:58)]
+    Routing Header for IPv6 (Type 2 Routing)
+        Next Header: Mobile IPv6 (135)
+        Length: 2
+        [Length: 24 bytes]
+        Type: Type 2 Routing (2)
+        Segments Left: 1
+        Reserved: 00000000
+        Address[1]: fd02::42
+    Mobile IPv6
+        Payload protocol: No Next Header for IPv6 (59)
+        Header length: 1 (16 bytes)
+        Mobility Header Type: Binding Acknowledgement (6)
+        Reserved: 0x00
+        Checksum: 0x4fd8
+        Binding Acknowledgement
+            Status: Binding Update accepted (0)
+            0... .... = Key Management Compatibility (K) flag: No Key Management Mobility Compatibility
+            .0.. .... = Mobile Router (R) flag: No Mobile Router Compatibility
+            ..0. .... = Proxy Registration (P) flag: No Proxy Registration
+            ...0 .... = TLV-header format (T) flag: No TLV-header format
+            .... 0... = Bulk-Binding-Update flag (B): Disabled bulk binding update support
+            Sequence number: 7909
+            Lifetime: 21599 (86396 seconds)
+        Mobility Options
+            MIPv6 Option - PadN
+                Length: 2
+                PadN: 0000
+```
+
 - *Router Solicitation*
 
 - *Router Advertisement*
 
-Ainsi qu'observer l'encapsulation d'IPv6 dans de l'IPv6.
+Ainsi qu'observer l'encapsulation d'IPv6 dans de l'IPv6 :
+
+```default
+Frame 94: 126 bytes on wire (1008 bits), 126 bytes captured (1008 bits)
+Ethernet II, Src: Raspberr_62:3c:58 (b8:27:eb:62:3c:58), Dst: Raspberr_25:05:81 (b8:27:eb:25:05:81)
+Internet Protocol Version 6, Src: fd01::ba27:ebff:fe62:3c58, Dst: fd02::1
+Internet Protocol Version 6, Src: fd02::42, Dst: fd02::bc1c:91ff:fefb:7c46
+Transmission Control Protocol, Src Port: 1234, Dst Port: 48748, Seq: 1, Ack: 184, Len: 0
+```
 
 \newpage
 
