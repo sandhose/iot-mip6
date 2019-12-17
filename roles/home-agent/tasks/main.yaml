@@ -1,3 +1,5 @@
+---
+
 - name: install a few packages
   apt:
     pkg:
@@ -10,6 +12,7 @@
   - bind
   - dhcpd
   - radvd
+  - packages
 
 - name: allow forwarding
   sysctl:
@@ -18,33 +21,39 @@
   with_items:
   - net.ipv4.ip_forward
   - net.ipv6.conf.all.forwarding
+  tags:
+  - nat
 
 - name: configure interfaces
   template:
     src: netplan.yaml.j2
     dest: /etc/netplan/51-custom.yaml
   notify: reapply netplan
-  tags: netplan
+  tags:
+  - netplan
 
 - name: configure isc-dhcpd-server
   template:
     src: dhcpd.conf.j2
     dest: /etc/dhcp/dhcpd.conf
   notify: restart isc-dhcp-server
-  tags: dhcpd
+  tags:
+  - dhcpd
 
 - name: configure radvd
   template:
     src: radvd.conf.j2
     dest: /etc/radvd.conf
   notify: restart radvd
-  tags: radvd
+  tags:
+  - radvd
 
 - name: configure mip6d
   template:
     src: mip6d.conf.j2
     dest: /usr/local/etc/mip6d.conf
-  tags: mip6d
+  tags:
+  - mip6d
 
 - name: configure dummy interface
   template:
@@ -55,7 +64,6 @@
     - homenet.network
   notify: restart networkd
   tags:
-  - dummy
   - mip6d
 
 - name: configure bind9
@@ -69,13 +77,16 @@
     - db.reverse-v4
     - db.reverse-v6
   notify: restart bind
-  tags: bind
+  tags:
+  - bind
 
 - name: configure hostapd
   template:
     src: hostapd.conf.j2
     dest: /etc/hostapd/hostapd.conf
   notify: restart hostapd
+  tags:
+  - hostapd
 
 - name: enable and start net services
   systemd:
@@ -88,6 +99,11 @@
   - radvd
   - isc-dhcp-server
   - bind9
+  tags:
+  - hostapd
+  - radvd
+  - bind
+  - dhcpd
 
 - name: enable NAT for IPv4
   iptables:
@@ -98,8 +114,10 @@
     out_interface: eth0
     jump: MASQUERADE
   notify:
-    - save iptables
-    - restart hostapd
+  - save iptables
+  - restart hostapd
+  tags:
+  - nat
 
 - name: enable NAT for IPv6
   iptables:
@@ -110,5 +128,7 @@
     out_interface: eth0
     jump: MASQUERADE
   notify:
-    - save iptables
-    - restart hostapd
+  - save iptables
+  - restart hostapd
+  tags:
+  - nat

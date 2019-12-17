@@ -14,6 +14,8 @@
     - linux-tools-common
     - libdw1
     - libunwind8
+  tags:
+  - packages
 
 - name: setup hostname
   hostname:
@@ -39,9 +41,20 @@
   modprobe:
     name: '{{ item }}'
   with_items: '{{ kernel_modules }}'
+  tags:
+  - mip6d
 
 - name: add the kernel modules in /etc/modules
   lineinfile:
     line: '{{ item }}'
     path: '/etc/modules'
   with_items: '{{ kernel_modules }}'
+  tags:
+  - mip6d
+
+- name: install mip6d
+  unarchive:
+    src: mip6d.tar.gz
+    dest: /
+  tags:
+  - mip6d

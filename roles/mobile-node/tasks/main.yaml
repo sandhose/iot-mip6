@@ -1,11 +1,16 @@
+---
+
 - name: configure interfaces
   template:
     src: netplan.yaml.j2
     dest: /etc/netplan/51-custom.yaml
   notify: reapply netplan
+  tags:
+  - netplan
 
 - name: configure mip6d
   template:
     src: mip6d.conf.j2
     dest: /usr/local/etc/mip6d.conf
-  tags: mip6d
+  tags:
+  - mip6d
