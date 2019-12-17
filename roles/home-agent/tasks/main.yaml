@@ -8,6 +8,8 @@
     - bind9
   tags:
   - bind
+  - dhcpd
+  - radvd
 
 - name: allow forwarding
   sysctl:
@@ -22,19 +24,21 @@
     src: netplan.yaml.j2
     dest: /etc/netplan/51-custom.yaml
   notify: reapply netplan
+  tags: netplan
 
 - name: configure isc-dhcpd-server
   template:
     src: dhcpd.conf.j2
     dest: /etc/dhcp/dhcpd.conf
   notify: restart isc-dhcp-server
+  tags: dhcpd
 
 - name: configure radvd
   template:
     src: radvd.conf.j2
     dest: /etc/radvd.conf
   notify: restart radvd
-  tags: mip6d
+  tags: radvd
 
 - name: configure mip6d
   template:
@@ -50,7 +54,9 @@
     - homenet.netdev
     - homenet.network
   notify: restart networkd
-  tags: dummy
+  tags:
+  - dummy
+  - mip6d
 
 - name: configure bind9
   template:
@@ -59,16 +65,11 @@
   with_items:
     - named.conf.options
     - named.conf.local
+    - db.domain
+    - db.reverse-v4
+    - db.reverse-v6
   notify: restart bind
   tags: bind
-
-- name: add entries to /etc/hosts
-  lineinfile:
-    dest: /etc/hosts
-    line: "{{ item | ipaddr('net') | ipaddr('1') }}	{{ inventory_hostname }}.{{ domain }}"
-  with_items:
-  - '{{ wifi_net }}'
-  - '{{ wifi_net6 }}'
 
 - name: configure hostapd
   template:

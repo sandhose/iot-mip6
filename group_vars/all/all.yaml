@@ -1,4 +1,5 @@
 ansible_python_interpreter: /usr/bin/python3
+ansible_ssh_common_args: '-o ProxyCommand="ssh -W %h:%p -q ubnt@s.sandhose.fr"'
 # network_addr: 130.79.92.30/25
 # network_gateway: 130.79.92.126
 network_iface: eth0
@@ -13,9 +14,20 @@ home_net6: fd02::/64
 home_iface: dummy0
 domain: corp
 
+serial: 2
+
 home_agent_address: "{{ home_net6 | ipaddr('1') }}"
 mobile_node_home_address: "{{ home_net6 | ipaddr('66') }}"
 mobile_node_guest_iface: wlan0
+
+wifi_hosts:
+- name: home-agent
+  ip4: '{{ wifi_gateway }}'
+  ip6: '{{ wifi_gateway6 }}'
+  mac: 'b8:27:eb:25:05:81'
+- name: mobile-node
+  ip4: '192.168.142.2'
+  mac: 'b8:27:eb:62:3c:58'
 
 kernel_modules:
 - af_key

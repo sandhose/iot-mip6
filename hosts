@@ -1,2 +1,2 @@
 home-agent	ansible_host=192.168.142.1	ansible_user=ubuntu
-mobile-node	ansible_host=192.168.142.54	ansible_user=ubuntu
+mobile-node	ansible_host=192.168.142.2	ansible_user=ubuntu

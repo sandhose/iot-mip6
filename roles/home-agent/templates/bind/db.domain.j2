@@ -1,0 +1,21 @@
+$TTL    300
+@	IN	SOA	home-agent.{{ domain }}. root.home-agent.{{ domain }}. (
+	{{ serial }}	; Serial
+	604800	; Refresh
+	86400	; Retry
+	2419200	; Expire
+	604800 )	; Negative Cache TTL
+;
+@	IN	NS	home-agent.{{ domain }}.
+
+{% for host in wifi_hosts %}
+{% if 'ip4' in host %}
+{{ host.name }}	IN	A	{{ host.ip4 }}
+{% endif %}
+{% if 'ip6' in host %}
+{{ host.name }}	IN	AAAA	{{ host.ip6 }}
+{% endif %}
+{% if 'mac' in host %}
+{{ host.name }}	IN	AAAA	{{ wifi_net6 | slaac(host.mac) }}
+{% endif %}
+{% endfor %}

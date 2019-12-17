@@ -8,6 +8,8 @@ interface wlan0 {
 
   RDNSS {{ wifi_gateway6 }} {
   };
+  DNSSL {{ domain }} {
+  };
 };
 
 interface {{ home_iface }} {
@@ -20,7 +22,7 @@ interface {{ home_iface }} {
   HomeAgentLifetime 1800;
   HomeAgentPreference 10;
 
-  prefix {{ home_net6 }} {
+  prefix {{ home_agent_address }} {
     AdvOnLink on;
     AdvAutonomous on;
     AdvRouterAddr on;

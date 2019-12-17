@@ -1,5 +1,9 @@
 [Match]
 Name=dummy0
 
+[Link]
+# Needed for radvd to send adverts
+Multicast=on
+
 [Network]
 Address={{ home_agent_address }}

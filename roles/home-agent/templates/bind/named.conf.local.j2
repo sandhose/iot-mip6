@@ -1,1 +1,16 @@
 include "/etc/bind/zones.rfc1918";
+
+zone "{{ domain }}" {
+  type master;
+  file "/etc/bind/db.domain";
+};
+
+zone "142.168.192.in-addr.arpa." {
+  type master;
+  file "/etc/bind/db.reverse-v4";
+};
+
+zone "0.0.0.0.0.0.0.0.0.0.0.0.1.0.d.f.ip6.arpa.in-addr.arpa." {
+  type master;
+  file "/etc/bind/db.reverse-v6";
+};

@@ -8,6 +8,8 @@ network:
       dhcp4: false
 {% else %}
       dhcp4: true
+      dhcp4-overrides:
+        use-dns: no
 {% endif %}
       dhcp6: false
 
