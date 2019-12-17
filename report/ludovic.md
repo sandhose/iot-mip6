@@ -1,4 +1,242 @@
-Setup du raspberry
+---
+title: Rapport du TP d'IoT sur la mobilité IPv6
+author: Ludovic Muller
+date: Mercredi 18 décembre 2019
+toc: true
+lang: fr
+geometry: "margin=2cm"
+papersize: a4
+output: pdf_document
+header-includes: |
+  \usepackage{fvextra}
+  \usepackage{polyglossia}
+  \setmainlanguage[]{french}
+  \setotherlanguage{english}
+
+  \RecustomVerbatimEnvironment{Highlighting}{Verbatim}{frame=single,commandchars=\\\{\},samepage,numbers=left,numbersep=6pt,framesep=4mm,breaklines}
+
+  \renewenvironment{Shaded}{\selectlanguage{english}}{\selectlanguage{french}}
+---
+
+\newpage
+
+# Vue d'ensemble
+
+![Schéma de l'architecture](archi.png)
+
+Nous avons eu deux raspberry Pi 3B+.
+
+Notre installation consistait à brancher un des raspberry à une connexion filaire (Ethernet) et d'en faire un point d'accès Wi-Fi.
+Ce raspberry jouera le rôle du *Home Agent* (HA).
+
+L'autre raspberry, qui jouera le rôle de *Mobile Node* (MN), était connecté en Wi-Fi au premier.
+
+# Système
+
+On a fait le choix de partir sur une version d'Ubuntu Server 19.10 en 64 bits pour ARM, afin d'avoir un support 64 bits et des paquets assez récents.
+
+Afin de disposer des fonctionnalités de mobilité IPv6, on a dû recompiler le noyau.
+L'installation du système de base ainsi que la démarche pour recompiler le noyau et le mettre en place sont décrits en annexe.
+
+On a écrit un *playbook* Ansible afin de configurer rapidement et de manière reproductible les raspberry Pi.
+Y sont notamment configurés : la connectivité, la résolution DNS, le serveur DHCP, `radvd`, … que nous allons voir en détails dans les points suivants.
+
+On a ensuite compilé UMIP pour avoir `mip6d` et ainsi pouvoir le lancer.
+
+# Connectivité
+
+La connectivité vers Internet était assuré en dual-stack sur le HA à travers la connexion filaire (`eth0`).
+Il obtient son adresse IP via DHCP/SLAAC.
+
+Le HA faisait office de NAT grâce à des règles `iptables`, ce qui permettait d'assurer également une connectivité derrière ce NAT pour le MN.
+
+Le HA et le MN sont connectés en Wi-Fi (`wlan0`) sur le préfixe `fd01::/64` que nous avons choisis.
+C'est le HA qui joue le rôle de point d'accès (avec `hostapd`) et possède les IP `192.168.142.1/24` et `fd01::1/64` sur `wlan0`.
+
+**Configuration `/etc/hostapd/hostapd.conf` (HA):**
+
+```ini
+interface=wlan0
+ssid=Noisette
+
+driver=nl80211
+hw_mode=g
+channel=6
+auth_algs=1
+wpa=0
+beacon_int=100
+dtim_period=2
+max_num_sta=255
+rts_threshold=2347
+fragm_threshold=2346
+```
+
+Une interface `dummy0` a été configurée sur le HA afin de servir le préfixe du *Home Network* (HN) qui est `fd02::/64`.
+
+Les interfaces `eth0` et `wlan0` sont configurés avec `netplan` et `dummy0` avec `systemd-networkd`.
+
+Le MN va également avoir une adresse IP du HN via le tunnel qui aura été créé avec `mip6d` (voir plus loin).
+
+# Résolution DNS
+
+Concernant la résoution DNS, nous avons mis en place `bind9` pour gérer une zone `.corp`, afin de pourvoir accéder directement aux machines avec leur nom (`home-agent` et `mobile-node`).
+
+Il est configuré pour *forwarder* les autres requêtes vers les serveurs de Cloudflare `1.1.1.1` et `1.0.0.1`.
+
+# Serveur DHCP
+
+Le paquet `isc-dhcp-server` a été installé sur le HA afin d'avoir un serveur DHCP.
+
+**Configuration `/etc/dhcp/dhcpd.conf` (HA):**
+
+```sh
+default-lease-time 600;
+max-lease-time 2592000;
+
+subnet 192.168.142.0 netmask 255.255.255.0 {
+  range 192.168.142.10 192.168.142.254;
+  option subnet-mask 255.255.255.0;
+  option broadcast-address 192.168.142.255;
+  option routers 192.168.142.1;
+  option domain-name-servers 192.168.142.1;
+  option domain-name "corp";
+}
+
+use-host-decl-names on;
+
+host home-agent {
+  hardware ethernet b8:27:eb:25:05:81;
+  fixed-address 192.168.142.1;
+}
+
+host mobile-node {
+  hardware ethernet b8:27:eb:62:3c:58;
+  fixed-address 192.168.142.2;
+}
+```
+
+# Router Advertisement
+
+Le paquet `radvd` a été installé sur le HA afin d'émettre des *Router Advertisement* (RA) périodiquement et de répondre aux *Router Solicitation* (RS) avec des RA.
+
+On a également configuré le flag pour le *HomeAgent* (on était d'abord partis sur une instalation avec `dnsmasq` mais il n'était pas possible d'activer ce flag, c'est pour cette raison que nous avons basculés sur `radvd`).
+
+**Configuration `/etc/radvd.conf` (HA):**
+
+```sh
+interface wlan0 {
+  AdvSendAdvert on;
+
+  prefix fd01::/64 {
+    AdvOnLink on;
+    AdvRouterAddr on;
+  };
+
+  RDNSS fd01::1 {};
+  DNSSL corp {};
+};
+
+interface dummy0 {
+  AdvSendAdvert on;
+  MaxRtrAdvInterval 3;
+  MinRtrAdvInterval 1;
+  AdvIntervalOpt on;
+  AdvHomeAgentFlag on;
+  AdvHomeAgentInfo on;
+  HomeAgentLifetime 1800;
+  HomeAgentPreference 10;
+
+  prefix fd02::1/64 {
+    AdvOnLink on;
+    AdvAutonomous on;
+    AdvRouterAddr on;
+  };
+};
+```
+
+# UMIP
+
+Pour l'installtion d'UMIP, voir la partie `Récupérer UMIP` de l'annexe 1.
+
+On a dû patcher UMIP pour arriver à le compiler correctement (voir le patch en annexe 3).
+
+Le tout semble fonctionner convenablement, car depuis mip6d on peut inspecter la liste des préfixes, le *binding cache*, la liste des *home address*, la liste des *binding update*, … comme on peut le voir ci-dessous :
+
+```sh
+mip6d> pl # prefix list
+dummy0 fd02:0:0:0:0:0:0:1/64
+ valid 86399 / 86400 preferred 14400 flags OAR
+mip6d> bc # binding cache
+hoa fd02:0:0:0:0:0:0:42 status registered
+ coa fd01:0:0:0:ba27:ebff:fe62:3c58 flags AH--
+ local fd02:0:0:0:0:0:0:1
+ lifetime 85957 / 86396 seq 7909 unreach 0 mpa 199 / 636 retry 0
+mip6d> hal # home address list
+dummy0 fd02:0:0:0:0:0:0:1
+ preference 10 lifetime 1800
+mip6d> bul # binding update list
+== BUL_ENTRY ==
+Home address    fd02:0:0:0:0:0:0:42
+Care-of address fd01:0:0:0:ba27:ebff:fe62:3c58
+CN address      fd02:0:0:0:0:0:0:1
+ lifetime = 86396,  delay = 82076000
+ flags: IP6_MH_BU_HOME IP6_MH_BU_ACK
+ ack ready
+ lifetime 85914 / 86396 seq 7909 resend 0 delay 82076(after 81595s)
+ mps 77279 / 77758
+```
+
+***Configuration `/usr/local/etc/mip6d.conf` (HA):***
+
+```sh
+NodeConfig HA;
+
+Interface "dummy0";
+
+UseMnHaIPsec disabled;
+KeyMngMobCapability disabled;
+
+DefaultBindingAclPolicy allow;
+```
+
+***Configuration `/usr/local/etc/mip6d.conf` (MN)::***
+
+```sh
+NodeConfig MN;
+
+UseMnHaIPsec disabled;
+KeyMngMobCapability disabled;
+OptimisticHandoff disabled;
+DoRouteOptimizationCN disabled;
+DoRouteOptimizationMN disabled;
+
+UseCnBuAck enabled;
+
+Interface "wlan0" {
+  MnIfPreference 1;
+}
+
+MnHomeLink "wlan0" {
+  HomeAgentAddress fd02::1;
+  HomeAddress fd02::42/64;
+}
+```
+
+Nous avons également capturé le trafic pour voir différents messages intéressants :
+
+- *Binding Update*
+
+- *Binding Acknowledgement*
+
+- *Router Solicitation*
+
+- *Router Advertisement*
+
+Ainsi qu'observer l'encapsulation d'IPv6 dans de l'IPv6.
+
+\newpage
+
+Annexe 1 : Installation du raspberry
 ==================
 
 ## Installation
@@ -6,21 +244,27 @@ Setup du raspberry
 Téléchargement de l'image 64 bits d'Ubuntu Server ici : https://ubuntu.com/download/raspberry-pi.
 
 Installation de l'image sur la carte micro-SD :
-- Depuis Windows : utilisation de Etcher (https://www.balena.io/etcher/)
-- Depuis Linux : double clic sur l'image, et laisser l'utilitaire de GNOME restaurer l'image.
 
+- Depuis Windows : utilisation de Etcher (https://www.balena.io/etcher/)
+
+- Depuis Linux : double clic sur l'image, et laisser l'utilitaire de GNOME restaurer l'image.
 
 ## Premier démarrage
 
 Trouver l'adresse IP :
+
 - lien local IPv6 en inspectant le traffic avec WireShark
+
 - IPv4 si on se branche sur une box par exemple (avec DHCP)
 
 Connexion en SSH (par défaut, l'image Ubuntu Server a un serveur SSH intégré, identifiants par défaut : `ubuntu` / `ubuntu`) sur l'IP trouvée.
 
 Faire les mises à jour :
+
 - mettre à jour le cache de `apt` : `sudo apt update`,
+
 - mettre à jour tous les paquets : `sudo apt upgrade`
+
   Nécessite qu'Ubuntu finisse de faire toutes les mises à jour de sécurité, ce qui peut prendre un peu de temps.
   Pour suivre l'upgrade, on peut consulter les logs : `tail -f /var/log/unattended-upgrades/*`.
 
@@ -55,11 +299,12 @@ Ceux marqués avec `(m)` sont disponibles sous forme de modules.
 
 Il faut maintenant builder les paquets pour le nouveau kernel avec les options qu'il faut.
 
+\newpage
 
-Noyau
+Annexe 2 : Noyau
 =====
 
-## Installation
+## Installation de la base
 
 Installer Ubuntu Server 19.10, puis certains paquets avec :
 
@@ -69,10 +314,13 @@ sudo apt install debootstrap qemu qemu-user-static binfmt-support
 
 Vérifier les formats d'exécutables pris en charge avec : `sudo update-binfmts --display`.
 
-Créer un système arm64 minimal dans lequel on va `chroot` et installer `vim` avec :
+Créer un système arm64 minimal dans lequel on va `chroot` et installer `vim` avec :
 
 ```sh
-sudo debootstrap --variant=buildd --arch arm64 eoan /var/chroot/eoan http://ports.ubuntu.com
+sudo debootstrap \
+    --variant=buildd \
+    --arch arm64 eoan \
+    /var/chroot/eoan http://ports.ubuntu.com
 sudo chroot /var/chroot/eoan/
 apt update && apt install vim
 ```
@@ -87,39 +335,49 @@ deb http://ports.ubuntu.com eoan-updates main universe restricted
 deb-src http://ports.ubuntu.com eoan-updates main universe restricted
 ```
 
-Lancer `apt update`.
+Lancer `apt update` pour mettre à jour le cache de `apt`.
 
-- cd /usr/local/src/
-- mkdir builder
-- chown _apt builder
-- cd builder
-- apt source linux-image-5.3.0-1012-raspi2
-- cd linux-raspi2-5.3.0/
-- apt build-dep linux-image-5.3.0-1012-raspi2
-- apt install libncurses-dev flex bison openssl libssl-dev dkms libelf-dev libudev-dev libpci-dev libiberty-dev autoconf gcc-arm-linux-gnueabihf
-- export LC_ALL=C
-- chmod a+x debian/scripts/* debian/scripts/misc/*
-- ./debian/rules editconfigs
-Â» Do you want to edit config: armhf/config.flavour.raspi2? [Y/n] n
-Â» Do you want to edit config: arm64/config.flavour.raspi2? [Y/n] y
-Networking support ->
-  Networking options ->
-    PF_KEY MIGRATE
-    Transformation sub policy support
+## Compilation du noyau
 
-- dpkg-buildpackage -a arm64
+Lancer les commandes suivantes :
 
+```sh
+cd /usr/local/src/
+mkdir builder
+chown _apt builder
+cd builder
+apt source linux-image-5.3.0-1012-raspi2
+cd linux-raspi2-5.3.0/
+apt build-dep linux-image-5.3.0-1012-raspi2
+apt install libncurses-dev flex bison openssl libssl-dev dkms \
+            libelf-dev libudev-dev libpci-dev libiberty-dev \
+            autoconf gcc-arm-linux-gnueabihf
+export LC_ALL=C
+chmod a+x debian/scripts/* debian/scripts/misc/*
 
+./debian/rules editconfigs
+#  » Do you want to edit config: armhf/config.flavour.raspi2? [Y/n] n
+#  » Do you want to edit config: arm64/config.flavour.raspi2? [Y/n] y
 
-récupérer les fichiers .deb qui se trouvent désormais dans le dossier parent
-(`scp "ludovic@metis:/var/chroot/eoan/usr/local/src/builder/*.deb" .)
+#     Networking support ->
+#       Networking options ->
+#         PF_KEY MIGRATE
+#         Transformation sub policy support
 
+dpkg-buildpackage -a arm64
+```
 
-les balancer sur le rasp
+## Récupération du kernel et transfert sur les raspberry
 
-installer les deb: `dpkg -i *.deb`
+Récupérer les fichiers .deb qui se trouvent désormais dans le dossier parent
 
-fixer les versions avec :
+(`scp "ludovic@metis:/var/chroot/eoan/usr/local/src/builder/*.deb" .`)
+
+et les transférer sur les deux raspberry Pi.
+
+Installer les deb: `dpkg -i *.deb`
+
+Fixer les versions avec :
 
 ```sh
 sudo apt-mark hold \
@@ -157,7 +415,7 @@ Le diff suivant https://github.com/torvalds/linux/commit/4c145dce26013763490df88
 
 Le flag `CONFIG_EXPERIMENTAL` n'est pas nécessaire.
 
-Il suffit de charger les modules restants avec : 
+Il suffit de charger les modules restants avec :
 
 ```sh
 sudo modprobe mip6
@@ -202,4 +460,55 @@ Options:
   -M, --mobile-node        Node is MN
 
 For bug reporting, see URL:http://www.mobile-ipv6.org/bugs/.
+```
+
+\newpage
+
+# Annexe 3 : patch d'UMIP
+
+```diff
+diff -ur mipv6-daemon-umip-0.4/libmissing/inet6_rth_getaddr.c mipv6-daemon-umip-0.4.new/libmissing/inet6_rth_getaddr.c
+--- mipv6-daemon-umip-0.4/libmissing/inet6_rth_getaddr.c	2007-09-13 11:42:42.000000000 +0200
++++ mipv6-daemon-umip-0.4.new/libmissing/inet6_rth_getaddr.c	2019-11-23 15:20:15.329370000 +0100
+@@ -3,6 +3,7 @@
+ /* This is a substitute for a missing inet6_rth_getaddr(). */
+
+ #include <netinet/in.h>
++#include <stddef.h>
+
+ struct in6_addr *inet6_rth_getaddr(const void *bp, int index)
+ {
+diff -ur mipv6-daemon-umip-0.4/libmissing/inet6_rth_init.c mipv6-daemon-umip-0.4.new/libmissing/inet6_rth_init.c
+--- mipv6-daemon-umip-0.4/libmissing/inet6_rth_init.c	2007-09-13 11:42:42.000000000 +0200
++++ mipv6-daemon-umip-0.4.new/libmissing/inet6_rth_init.c	2019-11-23 15:19:57.125444301 +0100
+@@ -5,6 +5,7 @@
+ #include <sys/socket.h>
+ #include <netinet/in.h>
+ #include <netinet/ip6.h>
++#include <stddef.h>
+
+ #ifndef IPV6_RTHDR_TYPE_2
+ #define IPV6_RTHDR_TYPE_2 2
+diff -ur mipv6-daemon-umip-0.4/src/ha.c mipv6-daemon-umip-0.4.new/src/ha.c
+--- mipv6-daemon-umip-0.4/src/ha.c	2007-09-13 11:42:42.000000000 +0200
++++ mipv6-daemon-umip-0.4.new/src/ha.c	2019-11-23 15:20:36.773282611 +0100
+@@ -31,7 +31,6 @@
+ #include <pthread.h>
+ #include <errno.h>
+ #include <net/if.h>
+-#include <netinet/ip.h>
+ #include <netinet/icmp6.h>
+ #include <netinet/ip6mh.h>
+ #include <sys/ioctl.h>
+diff -ur mipv6-daemon-umip-0.4/src/tunnelctl.c mipv6-daemon-umip-0.4.new/src/tunnelctl.c
+--- mipv6-daemon-umip-0.4/src/tunnelctl.c	2007-09-13 11:42:42.000000000 +0200
++++ mipv6-daemon-umip-0.4.new/src/tunnelctl.c	2019-11-23 15:20:54.829209137 +0100
+@@ -39,7 +39,6 @@
+
+ #include <net/if.h>
+ #include <sys/ioctl.h>
+-#include <netinet/ip.h>
+ #include <linux/if_tunnel.h>
+ #include <linux/ip6_tunnel.h>
+ #include <pthread.h>
 ```
