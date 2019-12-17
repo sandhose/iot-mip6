@@ -1,7 +1,11 @@
 ---
+title: TP Mobile IPv6
+author: Quentin Gliech
 toc: true
+toc-depth: 2
 lang: fr
 papersize: a4
+links-as-notes: true
 geometry:
 - margin=2cm
 header-includes: |
@@ -10,7 +14,7 @@ header-includes: |
   \setmainlanguage[]{french}
   \setotherlanguage{english}
 
-  \RecustomVerbatimEnvironment{Highlighting}{Verbatim}{frame=single,commandchars=\\\{\},samepage,numbers=left,numbersep=6pt,framesep=4mm,breaklines}
+  \RecustomVerbatimEnvironment{Highlighting}{Verbatim}{frame=single,commandchars=\\\{\},samepage,numbers=left,numbersep=6pt,framesep=2mm,breaklines}
 
   \renewenvironment{Shaded}{\selectlanguage{english}}{\selectlanguage{french}}
 ---
@@ -35,7 +39,7 @@ Le playbook complet est disponible sur [ce dépôt][repo].
 En annexe se trouvent tous les fichiers de configuration générés.
 
 Les deux hôtes ont leur interfaces réseau configurées via [`netplan`][netplan], à l'exception de `dummy0` sur routeur.
-Ils ont également `mip6d` d'installé et configuré (cf. [])
+Ils ont également `mip6d` d'installé et configuré (cf. `mip6d` en annexe & section "Mobile IPv6")
 
 Le router fait tourner plusieurs services:
 
@@ -43,6 +47,7 @@ Le router fait tourner plusieurs services:
  - `radvd` sur les interfaces `wlan0` et `dummy0`
  - `bind` comme serveur DNS, avec la zone `.corp` (ex: `home-agent.corp` et `mobile-node.corp`) et les zones reverse pour `192.168.142.0/24` et `fd01::/64`
  - `hostapd` pour le point d'accès `Noisette`
+ - du NAT en IPv4 et IPv6 pour permettre aux clients d'accéder à internet via `iptables`
 
 [repo]: https://github.com/sandhose/iot-mip6
 [netplan]: https://netplan.io
@@ -60,24 +65,24 @@ Le résultat donne plusieurs paquets `.deb` que l'on a ensuite installé sur les
 
 Une fois le tunnel établi, on constate ces entrées dans les différentes tables:
 
-- *prefix list* du `home-agent`:
+- *prefix list* du `home-agent`, rempli à la réception d'un RA sur dummy0:
   ```default
   dummy0 fd02:0:0:0:0:0:0:1/64
    valid 86399 / 86400 preferred 14400 flags OAR
   ```
-- *binding cache* du `home-agent`:
+- *binding cache* du `home-agent`, rempli au *binding update*:
   ```default
   hoa fd02:0:0:0:0:0:0:42 status registered
    coa fd01:0:0:0:ba27:ebff:fe62:3c58 flags AH--
    local fd02:0:0:0:0:0:0:1
    lifetime 85957 / 86396 seq 7909 unreach 0 mpa 199 / 636 retry 0
   ```
-- *home address list* du `home-agent`:
+- *home address list* du `home-agent`, rempli au *binding update*:
   ```default
   dummy0 fd02:0:0:0:0:0:0:1
    preference 10 lifetime 1800
   ```
-- *binding update list* du `mobile-node`:
+- *binding update list* du `mobile-node`, rempli au *binding acknowledgement*:
   ```default
   == BUL_ENTRY ==
   Home address    fd02:0:0:0:0:0:0:42
@@ -89,6 +94,24 @@ Une fois le tunnel établi, on constate ces entrées dans les différentes table
    lifetime 85914 / 86396 seq 7909 resend 0 delay 82076(after 81595s)
    mps 77279 / 77758
   ```
+
+Les paquets passant par le tunnel sont bien encapsulés dans deux couches d'IPv6:
+
+```default
+Ethernet II, Src: b8:27:eb:25:05:81, Dst: b8:27:eb:62:3c:58
+Internet Protocol Version 6, Src: fd02::1, Dst: fd01::ba27:ebff:fe62:3c58
+    0110 .... = Version: 6
+    .... 0000 0000 .... .... .... .... .... = Traffic Class: 0x00
+    .... .... .... 0101 0100 1001 0111 1110 = Flow Label: 0x5497e
+    Payload Length: 104
+    Next Header: IPv6 (41)
+    Hop Limit: 64
+    Source: fd02::1
+    Destination: fd01::ba27:ebff:fe62:3c58
+Internet Protocol Version 6, Src: fd02::bc1c:91ff:fefb:7c46, Dst: fd02::42
+Internet Control Message Protocol v6
+
+```
 
 # Annexes
 
@@ -423,4 +446,55 @@ diff -ur mipv6-daemon-umip-0.4/src/tunnelctl.c mipv6-daemon-umip-0.4.new/src/tun
  #include <linux/if_tunnel.h>
  #include <linux/ip6_tunnel.h>
  #include <pthread.h>
+```
+
+## *Binding update* pendant l'établissement du tunnel
+
+```default
+Internet Protocol Version 6, Src: fd01::ba27:ebff:fe62:3c58, Dst: fd02::1
+  0110 .... = Version: 6
+  .... 0000 0000 .... .... .... .... .... = Traffic Class: 0x00 (DSCP: CS0, ECN: Not-ECT)
+  .... .... .... 1101 1000 0000 1000 0011 = Flow Label: 0xd8083
+  Payload Length: 56
+  Next Header: Destination Options for IPv6 (60)
+  Hop Limit: 64
+  Source: fd01::ba27:ebff:fe62:3c58
+  Destination: fd02::1
+  [Source SA MAC: Raspberr_62:3c:58 (b8:27:eb:62:3c:58)]
+  Destination Options for IPv6
+    Next Header: Mobile IPv6 (135)
+    Length: 2
+    [Length: 24 bytes]
+    PadN
+    Home Address
+      Type: Home Address (0xc9)
+        11.. .... = Action: Discard and send ICMP if not multicast (3)
+        ..0. .... = May Change: No
+        ...0 1001 = Low-Order Bits: 0x09
+      Length: 16
+      MIPv6 Home Address: fd02::42
+  Mobile IPv6
+    Payload protocol: No Next Header for IPv6 (59)
+    Header length: 3 (32 bytes)
+    Mobility Header Type: Binding Update (5)
+    Reserved: 0x00
+    Checksum: 0xafd2
+    Binding Update
+      Sequence number: 7909
+      1... .... .... .... = Acknowledge (A) flag: Binding Acknowledgement requested
+      .1.. .... .... .... = Home Registration (H) flag: Home Registration
+      ..0. .... .... .... = Link-Local Compatibility (L) flag: No Link-Local Address Compatibility
+      ...0 .... .... .... = Key Management Compatibility (K) flag: No Key Management Mobility Compatibility
+      .... 0... .... .... = MAP Registration Compatibility (M) flag: No MAP Registration Compatibility
+      .... .0.. .... .... = Mobile Router (R) flag: No Mobile Router Compatibility
+      .... ..0. .... .... = Proxy Registration (P) flag: No Proxy Registration
+      .... ...0 .... .... = Forcing UDP encapsulation (F) flag: No Forcing UDP encapsulation
+      .... .... 0... .... = TLV-header format (T) flag: No TLV-header format
+      .... .... .0.. .... = Bulk-Binding-Update flag (B): Disable bulk binding update support
+      Lifetime: 21599 (86396 seconds)
+    Mobility Options
+      MIPv6 Option - PadN
+      MIPv6 Option - Alternate Care-of Address
+        Length: 16
+        Alternate care-of address: fd01::ba27:ebff:fe62:3c58
 ```
